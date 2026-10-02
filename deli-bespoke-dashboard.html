@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deli Bespoke — Production Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#E7E1D2;
+    --paper-raised:#F1ECE0;
+    --ink:#211F1A;
+    --ink-soft:#5B564A;
+    --indigo:#2C3A54;
+    --leather:#8C5636;
+    --stitch:#B8AE93;
+    --olive:#5C6B47;
+    --danger:#8C3B2E;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Archivo', sans-serif;
+    padding:32px 24px 60px;
+  }
+
+  h1{
+    font-family:'Fraunces', serif;
+    font-size:28px;
+    margin:0 0 4px;
+  }
+
+  .sub{
+    color:var(--ink-soft);
+    font-size:14px;
+    margin:0 0 28px;
+  }
+
+  .refresh-btn{
+    background:var(--ink);
+    color:var(--paper-raised);
+    border:none;
+    border-radius:2px;
+    padding:9px 18px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    margin-bottom:24px;
+  }
+
+  .refresh-btn:hover{ background:var(--indigo); }
+
+  .board{
+    display:flex;
+    gap:16px;
+    overflow-x:auto;
+    padding-bottom:12px;
+  }
+
+  .column{
+    background:var(--paper-raised);
+    border:1px solid var(--stitch);
+    border-radius:3px;
+    min-width:240px;
+    max-width:240px;
+    flex-shrink:0;
+    padding:14px;
+  }
+
+  .column-title{
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:10px;
+    display:flex;
+    justify-content:space-between;
+  }
+
+  .card{
+    background:var(--paper);
+    border:1px solid var(--stitch);
+    border-radius:2px;
+    padding:12px;
+    margin-bottom:10px;
+    font-size:13px;
+  }
+
+  .card-name{
+    font-weight:600;
+    margin-bottom:4px;
+  }
+
+  .card-detail{
+    color:var(--ink-soft);
+    font-size:12px;
+    margin-bottom:2px;
+  }
+
+  .card-price{
+    color:var(--olive);
+    font-weight:600;
+    margin-top:6px;
+  }
+
+  .review-flag{
+    display:inline-block;
+    background:rgba(140,86,54,0.12);
+    color:var(--leather);
+    font-size:11px;
+    font-weight:600;
+    padding:2px 6px;
+    border-radius:2px;
+    margin-bottom:6px;
+  }
+
+  .advance-btn{
+    margin-top:8px;
+    width:100%;
+    background:transparent;
+    border:1px solid var(--ink);
+    color:var(--ink);
+    border-radius:2px;
+    padding:6px;
+    font-size:12px;
+    cursor:pointer;
+  }
+
+  .advance-btn:hover{ background:var(--ink); color:var(--paper-raised); }
+
+  .empty-note{
+    color:var(--ink-soft);
+    font-size:12px;
+    font-style:italic;
+  }
+
+  .status-msg{
+    font-size:13px;
+    margin-bottom:16px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Production tracker</h1>
+<p class="sub">Live view of every order, grouped by stage.</p>
+<button class="refresh-btn" id="refreshBtn">Refresh</button>
+<div class="status-msg" id="statusMsg"></div>
+
+<div class="board" id="board"></div>
+
+<script>
+  var DASHBOARD_API_URL = "https://dtrplg3nui.execute-api.us-east-1.amazonaws.com/dashboard/orders";
+  var ADVANCE_API_BASE = "https://dtrplg3nui.execute-api.us-east-1.amazonaws.com/orders";
+
+  var COLUMNS = [
+    { key: "pending_approval", label: "Pending approval" },
+    { key: "approved", label: "Approved" },
+    { key: "categorized", label: "Categorized" },
+    { key: "priced", label: "Priced", advanceLabel: "Start cutting" },
+    { key: "cutting", label: "Cutting", advanceLabel: "Move to painting" },
+    { key: "painting", label: "Painting", advanceLabel: "Move to sealing" },
+    { key: "sealing", label: "Sealing", advanceLabel: "Mark shipped" },
+    { key: "shipped", label: "Shipped" },
+    { key: "rejected", label: "Rejected" }
+  ];
+
+  var statusMsg = document.getElementById("statusMsg");
+  var board = document.getElementById("board");
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function renderCard(order, column) {
+    var reviewFlag = order.needs_manual_review
+      ? "<div class=\"review-flag\">Custom request</div>"
+      : "";
+
+    var priceLine = order.price_estimate
+      ? "<div class=\"card-price\">$" + order.price_estimate + "</div>"
+      : "";
+
+    var advanceBtn = "";
+    if (column.advanceLabel) {
+      advanceBtn = "<button class=\"advance-btn\" data-order-id=\"" + order.order_id + "\">" +
+        column.advanceLabel + "</button>";
+    }
+
+    return "<div class=\"card\">" +
+      reviewFlag +
+      "<div class=\"card-name\">" + escapeHtml(order.name) + "</div>" +
+      "<div class=\"card-detail\">" + escapeHtml(order.pattern || "(custom request)") + " — size " + escapeHtml(order.size || "?") + "</div>" +
+      "<div class=\"card-detail\">" + escapeHtml((order.inspiration || "").slice(0, 60)) + "</div>" +
+      priceLine +
+      advanceBtn +
+      "</div>";
+  }
+
+  function renderBoard(orders) {
+    board.innerHTML = "";
+
+    for (var i = 0; i < COLUMNS.length; i++) {
+      var column = COLUMNS[i];
+      var columnOrders = orders.filter(function (o) { return o.status === column.key; });
+
+      var colHtml = "<div class=\"column\">" +
+        "<div class=\"column-title\"><span>" + column.label + "</span><span>" + columnOrders.length + "</span></div>";
+
+      if (columnOrders.length === 0) {
+        colHtml += "<div class=\"empty-note\">No orders</div>";
+      } else {
+        for (var j = 0; j < columnOrders.length; j++) {
+          colHtml += renderCard(columnOrders[j], column);
+        }
+      }
+
+      colHtml += "</div>";
+      board.insertAdjacentHTML("beforeend", colHtml);
+    }
+
+    var advanceButtons = document.querySelectorAll(".advance-btn");
+    for (var k = 0; k < advanceButtons.length; k++) {
+      advanceButtons[k].addEventListener("click", handleAdvanceClick);
+    }
+  }
+
+  function handleAdvanceClick(e) {
+    var orderId = e.target.getAttribute("data-order-id");
+    e.target.disabled = true;
+    e.target.textContent = "Updating...";
+
+    fetch(ADVANCE_API_BASE + "/" + orderId + "/advance", { method: "POST" })
+      .then(function (res) {
+        if (!res.ok) { throw new Error("Failed to advance order"); }
+        return res.json();
+      })
+      .then(function () {
+        loadOrders();
+      })
+      .catch(function (err) {
+        console.error(err);
+        statusMsg.textContent = "Couldn't update that order — try refreshing.";
+      });
+  }
+
+  function loadOrders() {
+    statusMsg.textContent = "Loading...";
+    fetch(DASHBOARD_API_URL)
+      .then(function (res) {
+        if (!res.ok) { throw new Error("Server responded with " + res.status); }
+        return res.json();
+      })
+      .then(function (data) {
+        statusMsg.textContent = "";
+        renderBoard(data.orders || []);
+      })
+      .catch(function (err) {
+        console.error(err);
+        statusMsg.textContent = "Couldn't load orders. Check the console for details.";
+      });
+  }
+
+  document.getElementById("refreshBtn").addEventListener("click", loadOrders);
+  loadOrders();
+</script>
+
+</body>
+</html>
