@@ -177,5 +177,5 @@ orders, confirming:
 ## Links
 *[Add once available]*
 - Live form: [link]
-- Code repository: [link]
+
 - Demo video walkthrough: [link]
