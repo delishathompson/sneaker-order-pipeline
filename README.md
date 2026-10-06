@@ -38,7 +38,7 @@ An automated pipeline that takes an order from a public web form all the
 way through approval, categorization, price estimation, and production
 tracking - without manual data entry at any stage.
 
-**[Insert architecture diagram here]**
+****
 
 ### How it works
 1. **Intake** - a customer fills out a web form (pattern, size, color/
