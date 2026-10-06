@@ -86,10 +86,19 @@ tracking - without manual data entry at any stage.
 
 ## My role
 
-Designed and built the entire pipeline solo - from data model design
+Designed and built the entire pipeline solo — from data model design
 (what fields an order needs, how status moves through stages) through
 the AWS infrastructure, every Lambda function's business logic, the
 front-end order form, and the production-tracking dashboard.
+
+### Development approach
+
+I used AI tools (Claude) to help draft code and documentation, and I
+cross-referenced the official AWS documentation to confirm services,
+permissions, and configuration. I deployed everything myself in AWS,
+tested it, debugged issues, and corrected the output as I went. The
+project ideas and the problems they solve come from my own day-to-day
+work.
 
 ---
 
