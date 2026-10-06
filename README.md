@@ -185,6 +185,6 @@ orders, confirming:
 
 ## Links
 *[Add once available]*
-- Live form: [link]
+- Live form: [https://deli-bespoke-order-form-delisha.s3.us-east-1.amazonaws.com/deli-bespoke-order-form-v2.html]
 
-- Demo video walkthrough: [link]
+- Demo video walkthrough: [(https://youtu.be/GkCCJTGJw7M)]
